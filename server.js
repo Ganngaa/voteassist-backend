@@ -25,8 +25,8 @@ if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
   process.env.GOOGLE_APPLICATION_CREDENTIALS = keyPath;
 }
 
-// Then initialize Dialogflow client
-const sessionClient = new dialogflow.SessionsClient();
+const sessionClient = new dialogflow.SessionsClient(); // Will now use correct credentials
+
 
 
 
@@ -52,7 +52,8 @@ app.post('/twilio-webhook', async (req, res) => {
     const responses = await sessionClient.detectIntent(request);
     const result = responses[0].queryResult;
 
-    const webhookResponse = await axios.post('http://localhost:3030/', {
+    const webhookResponse = await axios.post('https://voteassist-backend-1.onrender.com/', {
+
       queryResult: result,
       phoneNumber: sessionId.replace('whatsapp:', '')  // pass phoneNumber here
     });
@@ -71,29 +72,24 @@ app.post('/twilio-webhook', async (req, res) => {
 
 // Dialogflow Fulfillment Handler
 app.post('/', async (req, res) => {
-   const session = req.body.session;
-  const userInput = req.body.queryResult.queryText.trim();
+  const session = req.body.session;
   const queryResult = req.body.queryResult || {};
-const intent = queryResult.intent?.displayName || 'UnknownIntent';
+  const userInput = queryResult.queryText?.trim() || '';
+  const intent = queryResult.intent?.displayName || 'UnknownIntent';
 
-  const activeContexts = req.body.queryResult.outputContexts?.map(ctx => ctx.name.split('/').pop()) || [];
+  const activeContexts = queryResult.outputContexts?.map(ctx => ctx.name.split('/').pop()) || [];
 
-  // Log intent and active contexts
-  console.log("Dialogflow Fulfillment webhook hit.");
-  console.log("User Input:", userInput);
- console.log("Intent:", intent);
+  // Log incoming request
+  console.log("🧠 Dialogflow Fulfillment webhook hit.");
+  console.log("📥 User Input:", userInput);
+  console.log("🎯 Intent:", intent);
+  console.log("📂 Active Contexts:", activeContexts);
 
-  console.log("Active Contexts:", activeContexts);
+  const hasContext = (ctxName) => activeContexts.includes(ctxName);
 
-  const hasContext = (ctxName) =>
-    activeContexts.includes(ctxName);
+  let fulfillmentText = "Sorry, something went wrong.";
 
-  let response = {};
-  //const goBackOptions =
-  //"🔁 Options:\n" +
- // "1️⃣ Go Back to Previous Menu\n" +
- // "2️⃣ Back to Main Menu\n" +
- // "3️⃣ End Conversation";
+
 
 try{
 switch (intent) {
@@ -853,14 +849,18 @@ case 'GetBLOByPollingStation': {
 
   break;
 }
-      default:
-        console.log(`Unhandled intent: ${intentName}`);
-        response = { fulfillmentText: 'I could not understand your request.' };
-    }
-    } catch (error) {
-    console.error('Fulfillment webhook error:', error.message);
-    response = { fulfillmentText: 'Sorry, something went wrong.' };
+     default:
+      console.warn("⚠️ No handler for intent:", intent);
+      response = {
+        fulfillmentText: "⚠️ Sorry, I didn't understand that. Please try again.",
+      };
   }
+
+  res.json(response); // ✅ Always send a response
+} catch (error) {
+  console.error("❌ Error in fulfillment handler:", error);
+  res.json({ fulfillmentText: "⚠️ Internal error. Please try again later." });
+}
 
   res.json(response);
 });
