@@ -15,9 +15,19 @@ app.use(bodyParser.json());
 
 // Dialogflow Config
 const projectId = 'rough-igui';
-const sessionClient = new dialogflow.SessionsClient({
-  keyFilename: process.env.DF_KEY_FILE || './keys/dialogflow-key.json',
-});
+const fs = require('fs');
+const path = require('path');
+
+// Write key file from env var (only in Render)
+if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+  const keyPath = path.join(__dirname, 'dialogflow-key.json');
+  fs.writeFileSync(keyPath, process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = keyPath;
+}
+
+// Then initialize Dialogflow client
+const sessionClient = new dialogflow.SessionsClient();
+
 
 
 // WhatsApp → Dialogflow handler
